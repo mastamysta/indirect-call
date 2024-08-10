@@ -54,4 +54,67 @@ Indirect calls:
        0.001999000 seconds sys
 ```
 
-With huge frontend stalls for indirect calls.
+We see significant frontend stalls with the indirect calling regime, but few branch mispredictions.
+
+Digging deeper into this with perf we can see:
+
+Direct calls:
+```
+3K branch-misses                                                                                                              ◆
+1K L1-dcache-load-misses                                                                                                      ▒
+11K cycles 
+```
+
+Branch misses:
+```
+Samples: 3K of event 'branch-misses', Event count (approx.): 263228
+Overhead  Command         Shared Object         Symbol
+  31.21%  good_branching  good_branching        [.] func(unsigned int, unsigned int)
+  18.94%  good_branching  [unknown]             [k] 0xffffffffb02c0d53
+  13.62%  good_branching  [unknown]             [k] 0xffffffffb02c4b06
+   9.55%  good_branching  good_branching        [.] goodcall(unsigned int, unsigned int)
+   7.66%  good_branching  good_branching        [.] main
+```
+
+DCache misses:
+```
+Samples: 1K of event 'L1-dcache-load-misses', Event count (approx.): 330039
+Overhead  Command         Shared Object         Symbol
+  24.38%  good_branching  [unknown]             [k] 0xffffffffb02c0d53
+  13.19%  good_branching  good_branching        [.] func(unsigned int, unsigned int)
+  12.44%  good_branching  [unknown]             [k] 0xffffffffb02c4b06
+   6.15%  good_branching  [unknown]             [k] 0xffffffffb02c4919
+   4.76%  good_branching  good_branching        [.] main
+```
+
+Indirect calls:
+```
+4K branch-misses                                                                                                              ◆
+3K L1-dcache-load-misses                                                                                                      ▒
+12K cycles  
+```
+
+The branch misses are predominantly upon the indirect call:
+```
+Samples: 4K of event 'branch-misses', Event count (approx.): 307754
+Overhead  Command        Shared Object         Symbol
+  34.65%  bad_branching  bad_branching         [.] func(unsigned int, unsigned int)
+  14.29%  bad_branching  [unknown]             [k] 0xffffffffb02c0d53
+  12.85%  bad_branching  [unknown]             [k] 0xffffffffb02c4b06
+  11.89%  bad_branching  bad_branching         [.] badcall(unsigned int, unsigned int)
+   9.87%  bad_branching  bad_branching         [.] main
+```
+
+But most interestingly of all, there are significant L1 data cache misses occurring upon the function pointer:
+```
+Samples: 3K of event 'L1-dcache-load-misses', Event count (approx.): 509476
+Overhead  Command        Shared Object     Symbol
+  27.06%  bad_branching  bad_branching     [.] func(unsigned int, unsigned int)
+  15.71%  bad_branching  [unknown]         [k] 0xffffffffb02c0d53
+  11.46%  bad_branching  bad_branching     [.] badcall(unsigned int, unsigned int)
+   9.82%  bad_branching  [unknown]         [k] 0xffffffffb02c4b06
+   8.20%  bad_branching  [unknown]         [k] 0xffffffffb02c4919
+   6.31%  bad_branching  bad_branching     [.] main
+```
+
+So we're seeing significant delays due to data cache misses when using indirect calling. Roughly 2.5-3x as many dcache misses.
