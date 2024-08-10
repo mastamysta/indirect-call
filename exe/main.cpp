@@ -5,10 +5,23 @@
 #else
 #include "func.hpp"
 
-static auto direct(uint32_t a, uint32_t b) -> uint32_t
-{
-    return func(a, b);
-}
+    #ifdef PINDIRECT
+
+    static uint32_t (*pfunc)(uint32_t, uint32_t) = func;
+
+    static auto pindirect(uint32_t a, uint32_t b) -> uint32_t
+    {
+        return pfunc(a, b);
+    }
+
+    #else
+
+    static auto direct(uint32_t a, uint32_t b) -> uint32_t
+    {
+        return func(a, b);
+    }
+
+    #endif
 
 #endif
 
@@ -25,7 +38,11 @@ int main()
     #ifdef INDIRECT
         indirect(i, LIST_SIZE - i);
     #else
-        direct(i, LIST_SIZE - i);
+        #ifdef PINDIRECT
+            pindirect(i, LIST_SIZE - i);
+        #else
+            direct(i, LIST_SIZE - i);
+        #endif
     #endif   
         }
     }
